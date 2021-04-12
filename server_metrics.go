@@ -6,52 +6,98 @@ import (
 )
 
 type ServerByteMetrics struct {
-	serverMsgSizeReceivedHistogramOpts prom.HistogramOpts
-	serverMsgSizeReceivedHistogram     *prom.HistogramVec
+	serverMsgSizeBytesSent     *prom.CounterVec
+	serverMsgSizeBytesReceived *prom.CounterVec
 
-	serverMsgSizeSentHistogramOpts prom.HistogramOpts
-	serverMsgSizeSentHistogram     *prom.HistogramVec
+	serverMsgSizeReceivedHistogramEnabled bool
+	serverMsgSizeReceivedHistogramOpts    prom.HistogramOpts
+	serverMsgSizeReceivedHistogram        *prom.HistogramVec
+
+	serverMsgSizeSentHistogramEnabled bool
+	serverMsgSizeSentHistogramOpts    prom.HistogramOpts
+	serverMsgSizeSentHistogram        *prom.HistogramVec
 }
 
 func NewServerByteMetrics() *ServerByteMetrics {
-	tempreceived := prom.HistogramOpts{
-		Name:    "grpc_server_msg_size_received_bytes",
-		Help:    "Histogram of message sizes received by the server.",
-		Buckets: defMsgBytesBuckets,
-	}
-	tempsent := prom.HistogramOpts{
-		Name:    "grpc_server_msg_size_sent_bytes",
-		Help:    "Histogram of message sizes sent by the server.",
-		Buckets: defMsgBytesBuckets,
-	}
 	return &ServerByteMetrics{
-		serverMsgSizeReceivedHistogramOpts: tempreceived,
-		serverMsgSizeReceivedHistogram: prom.NewHistogramVec(
-			tempreceived,
-			[]string{"grpc_service", "grpc_method", "grpc_stats"},
-		),
-		serverMsgSizeSentHistogramOpts: tempsent,
-		serverMsgSizeSentHistogram: prom.NewHistogramVec(
-			tempsent,
-			[]string{"grpc_service", "grpc_method", "grpc_stats"},
-		),
+		serverMsgSizeBytesReceived: prom.NewCounterVec(
+			prom.CounterOpts{
+				Name: "grpc_server_bytes",
+				Help: "Number of message sizes received by the server.",
+			}, []string{"grpc_type", "grpc_service", "grpc_method", "grpc_code"}),
+
+		serverMsgSizeBytesSent: prom.NewCounterVec(
+			prom.CounterOpts{
+				Name: "grpc_server_bytes",
+				Help: "Number of message sizes sent by the server.",
+			}, []string{"grpc_type", "grpc_service", "grpc_method", "grpc_code"}),
+
+		serverMsgSizeReceivedHistogramEnabled: false,
+		serverMsgSizeReceivedHistogramOpts: prom.HistogramOpts{
+			Name:    "grpc_server_msg_size_received_bytes",
+			Help:    "Histogram of message sizes received by the server.",
+			Buckets: defMsgBytesBuckets,
+		},
+
+		serverMsgSizeReceivedHistogram:    nil,
+		serverMsgSizeSentHistogramEnabled: false,
+		serverMsgSizeSentHistogramOpts: prom.HistogramOpts{
+			Name:    "grpc_server_msg_size_sent_bytes",
+			Help:    "Histogram of message sizes sent by the server.",
+			Buckets: defMsgBytesBuckets,
+		},
+		serverMsgSizeSentHistogram: nil,
 	}
+}
+
+// EnableMsgSizeReceivedBytesHistogram turns on recording of received message size of RPCs.
+// Histogram metrics can be very expensive for Prometheus to retain and query. It takes
+// options to configure histogram options such as the defined buckets.
+func (m *ServerByteMetrics) EnableMsgSizeReceivedBytesHistogram() {
+	m.serverMsgSizeReceivedHistogram = prom.NewHistogramVec(
+		m.serverMsgSizeSentHistogramOpts,
+		[]string{"grpc_service", "grpc_method", "grpc_stats"},
+	)
+	m.serverMsgSizeReceivedHistogramEnabled = true
+}
+
+// EnableMsgSizeSentBytesHistogram turns on recording of sent message size of RPCs.
+// Histogram metrics can be very expensive for Prometheus to retain and query. It takes
+// options to configure histogram options such as the defined buckets.
+func (m *ServerByteMetrics) EnableMsgSizeSentBytesHistogram() {
+	m.serverMsgSizeSentHistogram = prom.NewHistogramVec(
+		m.serverMsgSizeSentHistogramOpts,
+		[]string{"grpc_service", "grpc_method", "grpc_stats"},
+	)
+	m.serverMsgSizeSentHistogramEnabled = true
 }
 
 // Describe sends the super-set of all possible descriptors of metrics
 // collected by this Collector to the provided channel and returns once
 // the last descriptor has been sent.
 func (m *ServerByteMetrics) Describe(ch chan<- *prom.Desc) {
-	m.serverMsgSizeReceivedHistogram.Describe(ch)
-	m.serverMsgSizeSentHistogram.Describe(ch)
+	m.serverMsgSizeBytesReceived.Describe(ch)
+	m.serverMsgSizeBytesSent.Describe(ch)
+	if m.serverMsgSizeReceivedHistogramEnabled {
+		m.serverMsgSizeReceivedHistogram.Describe(ch)
+	}
+	if m.serverMsgSizeSentHistogramEnabled {
+		m.serverMsgSizeSentHistogram.Describe(ch)
+	}
 }
 
 // Collect is called by the Prometheus registry when collecting
 // metrics. The implementation sends each collected metric via the
 // provided channel and returns once the last metric has been sent.
 func (m *ServerByteMetrics) Collect(ch chan<- prom.Metric) {
-	m.serverMsgSizeReceivedHistogram.Collect(ch)
-	m.serverMsgSizeSentHistogram.Collect(ch)
+	m.serverMsgSizeBytesReceived.Collect(ch)
+	m.serverMsgSizeBytesSent.Collect(ch)
+	if m.serverMsgSizeReceivedHistogramEnabled {
+		m.serverMsgSizeReceivedHistogram.Collect(ch)
+	}
+	if m.serverMsgSizeSentHistogramEnabled {
+		m.serverMsgSizeSentHistogram.Collect(ch)
+	}
 }
 
 func (m *ServerByteMetrics) NewServerByteStatsHandler() stats.Handler {

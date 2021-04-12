@@ -24,10 +24,16 @@ func NewServerByteReporter(startTime time.Time, m *ServerByteMetrics, fullMethod
 
 // ReceivedMessageSize counts the size of received messages on server-side
 func (r *serverByteReporter) ReceivedMessageSize(rpcStats grpcStats, size float64) {
-	r.metrics.serverMsgSizeReceivedHistogram.WithLabelValues(r.serviceName, r.methodName, rpcStats.String()).Observe(size)
+	r.metrics.serverMsgSizeBytesReceived.WithLabelValues(r.serviceName, r.methodName, rpcStats.String()).Add(size)
+	if r.metrics.serverMsgSizeReceivedHistogramEnabled {
+		r.metrics.serverMsgSizeReceivedHistogram.WithLabelValues(r.serviceName, r.methodName, rpcStats.String()).Observe(size)
+	}
 }
 
 // SentMessageSize counts the size of sent messages on server-side
 func (r *serverByteReporter) SentMessageSize(rpcStats grpcStats, size float64) {
-	r.metrics.serverMsgSizeSentHistogram.WithLabelValues(r.serviceName, r.methodName, rpcStats.String()).Observe(size)
+	r.metrics.serverMsgSizeBytesSent.WithLabelValues(r.serviceName, r.methodName, rpcStats.String()).Add(size)
+	if r.metrics.serverMsgSizeSentHistogramEnabled {
+		r.metrics.serverMsgSizeSentHistogram.WithLabelValues(r.serviceName, r.methodName, rpcStats.String()).Observe(size)
+	}
 }
