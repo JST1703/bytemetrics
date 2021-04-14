@@ -17,7 +17,7 @@ const (
 var (
 	rpcInfoKey = "rpc-info"
 
-	defMsgBytesBuckets = []float64{0, 32, 64, 128, 256, 512, 1024, 2048}
+	defMsgBytesBuckets = []float64{0, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192}
 )
 
 func SplitMethodName(fullMethodName string) (string, string) {
